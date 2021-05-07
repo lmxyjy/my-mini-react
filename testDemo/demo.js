@@ -23,7 +23,7 @@ function createTextElement(text) {
   };
 } //渲染到页面
 
-function render(element, container) {
+function render(container, element) {
   const dom =
     element.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
@@ -36,7 +36,7 @@ function render(element, container) {
     }); //递归调用children
 
   element.props.children.forEach((child) => {
-    render(child, dom);
+    render(dom, child);
   });
   container.appendChild(dom);
 }
@@ -62,4 +62,4 @@ const element = MyReact.createElement(
   )
 );
 const container = document.getElementById("root");
-MyReact.render(element, container);
+MyReact.render(container, element);
