@@ -10,7 +10,7 @@ const elementToJsObj = {
   },
 };
 
-//React.render(document.getElementById('root'),element)等效于下面的代码
+//ReactDOM.render(document.getElementById('root'),element)等效于下面的代码
 
 //1.根据type创建对应的html标签
 const node = document.createElement(elementToJsObj.type);
