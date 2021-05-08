@@ -1,18 +1,37 @@
 "use strict";
 
-//创建元素节点
+/**
+ * @jsx createElement
+ */
+const element = createElement(
+  "div",
+  {
+    style: "background: salmon",
+  },
+  createElement("h1", null, "Hello World"),
+  createElement(
+    "h2",
+    {
+      style: "text-align:right",
+    },
+    "from MyReact"
+  )
+);
+
+//createElement
 function createElement(type, props, ...children) {
   return {
     type,
     props: {
       ...props,
-      children: children.map((child) =>
-        typeof child === "object" ? child : createTextElement(child)
+      children: children.map((item) =>
+        typeof item === "object" ? item : createTextElement(item)
       ),
     },
   };
-} //创建文本节点
+}
 
+//createTextElement
 function createTextElement(text) {
   return {
     type: "TEXT_ELEMENT",
@@ -21,45 +40,24 @@ function createTextElement(text) {
       children: [],
     },
   };
-} //渲染到页面
-
-function render(container, element) {
-  const dom =
-    element.type === "TEXT_ELEMENT"
-      ? document.createTextNode("")
-      : document.createElement(element.type); //将所有不是children的属性,赋值给dom
-
-  Object.keys(element.props)
-    .filter((key) => key !== "children")
-    .forEach((name) => {
-      dom[name] = element.props[name];
-    }); //递归调用children
-
-  element.props.children.forEach((child) => {
-    render(dom, child);
-  });
-  container.appendChild(dom);
 }
 
-const MyReact = {
-  createElement,
-  createTextElement,
-  render,
-};
-/** @jsx MyReact.createElement */
-const element = MyReact.createElement(
-  "div",
-  {
-    style: "background: salmon",
-  },
-  MyReact.createElement("h1", null, "Hello World"),
-  MyReact.createElement(
-    "h2",
-    {
-      style: "text-align:right",
-    },
-    "from MyReact"
-  )
-);
-const container = document.getElementById("root");
-MyReact.render(container, element);
+//render
+function render(container, element) {
+  //根据element.type创建需要被添加的dom节点
+  const _dom =
+    element.type === "TEXT_ELEMENT"
+      ? document.createTextNode("")
+      : document.createElement(element.type);
+
+  //将除了children以外的其他属性，赋值给dom节点
+  Reflect.ownKeys(element.props).forEach((key) => {
+    key !== "children" && (_dom[key] = element.props[key]);
+  }); //但是节点肯定不止一个,所以需要进行递归添加
+
+  element.props.children.forEach((child) => render(_dom, child)); //添加到容器中
+
+  container.appendChild(_dom);
+}
+
+render(document.getElementById("root"), element);
