@@ -1,12 +1,40 @@
+"use strict";
+
+function createElement(type, props, ...children) {
+  return {
+    type,
+    props: {
+      ...props,
+      children: children.map((child) =>
+        typeof child === "object" ? child : createTextElement(child)
+      ),
+    },
+  };
+}
+
+function createTextElement(text) {
+  return {
+    type: "TEXT_ELEMENT",
+    props: {
+      nodeValue: text,
+      children: [],
+    },
+  };
+}
 //fiber和reconcile
+
 let nextUnitOfWork = null; //下一个任务单元
+
 let wipRoot = null; //当前根节点
+
 let currentFiber = null; //当前的fiber tree
+
 let deletions = null; //fiber中需要被删除的dom
 
 //并发模式执行单元任务
 function workLoop(deadline) {
   let shouldYield = false; //是否跳出此次循环
+
   //存在下一个单元的任务，同时还剩余了执行任务的时间
   while (nextUnitOfWork && !shouldYield) {
     nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
@@ -18,11 +46,11 @@ function workLoop(deadline) {
     commitRoot();
   }
 
-  //将后续需要执行的单元r任务放入下一个空闲循环中
-  requestIdleCallback(workloop);
+  //将后续需要执行的单元任务放入下一个空闲循环中
+  requestIdleCallback(workLoop);
 }
 
-requestIdleCallback(workloop); //当浏览器空闲时，执行此循环任务
+requestIdleCallback(workLoop); //当浏览器空闲时，执行此循环任务
 
 //1，添加元素的dom节点
 //2，创建元素children属性的fiber对象
@@ -39,25 +67,28 @@ function performUnitOfWork(fiber) {
   // if (fiber.parent) {
   //   fiber.parent.dom.appendChild(fiber.dom);
   // }
+
   //为fiber的child节点创建newFiber
   const elements = fiber.props.children;
-  reconcileChildren(fiber, elements);
+  reconcileChildren(fiber, elements); // 返回下一个单元任务
 
-  // 返回下一个单元任务
   if (fiber.child) {
     //因为是先执行child，所以直接返回child节点
     return fiber.child;
   }
+
   //当当前dom树的所有child节点都执行完毕后，再执行sibling节点，child-->sibling-->parent 不断的归到root fiber
   let nextFiber = fiber;
+
   while (nextFiber) {
-    if (nextFiber.silbing) {
-      return nextFiber.silbing;
-    }
-    //从sibling-->parent
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
+    } //从sibling-->parent
+
     nextFiber = nextFiber.parent;
   }
 }
+
 //判断属性是否是事件
 const isEvent = (key) => key.startsWith("on");
 //判断是否为需要的属性
@@ -72,15 +103,8 @@ function createDom(fiber) {
   const dom =
     fiber.type === "TEXT_ELEMENT"
       ? document.createTextNode("")
-      : document.createElement(fiber.type);
-
-  //这里需要排除children属性
-  Reflect.ownKeys(fiber.props)
-    .filter(isProperty)
-    .forEach((name) => {
-      dom[name] = fiber.props[name];
-    });
-
+      : document.createElement(fiber.type); //这里需要排除children属性
+  updateDom(dom, {}, fiber.props);
   return dom;
 }
 
@@ -112,7 +136,7 @@ function updateDom(dom, prevProps, nextProps) {
     .filter(isEvent)
     .forEach((name) => {
       const eventType = name.toLowerCase().substring(2);
-      dom.addEventListenter(eventType, nextProps[name]);
+      dom.addEventListener(eventType, nextProps[name]);
     });
 }
 
@@ -134,11 +158,14 @@ function render(container, element) {
 function commitRoot() {
   //删除不需要的dom
   deletions.forEach(commitWork);
+
   //渲染其他的dom
   commitWork(wipRoot.child);
   currentFiber = wipRoot; //挂载的时候，获取到currentFiber
+
   wipRoot = null;
 }
+
 //递归添加dom节点
 function commitWork(fiber) {
   if (!fiber) {
@@ -147,24 +174,24 @@ function commitWork(fiber) {
 
   //获取到父级dom
   const domParent = fiber.parent.dom;
+
   //处理不同的effectTag
-  if (fiber.effectTag === "PLACMENT" && fiber.dom !== null) {
+  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
     domParent.appendChild(fiber.dom);
-  } else if (fiber.effectTag === "UPDATE" && fiber.dom !== null) {
+  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
     updateDom(fiber.dom, fiber.alternate.props, fiber.props);
   } else if (fiber.effectTag === "DELETION") {
     domParent.removeChild(fiber.dom);
   }
-  domParent.appendChild(fiber.dom); //添加节点到父级
+
   commitWork(fiber.child); //添加子节点
-  commitWork(fiber.silbing); //添加兄弟节点
+  commitWork(fiber.sibling); //添加兄弟节点
 }
 
 //这个函数用于比较更新，也就是常说的diff生效的部分，这里主要是根据不同的情况，对fiber节点打上不同的tag。
 //使得在commit的时候，依据这些tag对dom节点做不同的操作
 function reconcileChildren(wipFiber, elements) {
-  let index = 0;
-  //获取到old fiber
+  let index = 0; //获取到old fiber
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
   let prevSibling = null; //记录上一个循环中的element生成的fiber
 
@@ -173,10 +200,9 @@ function reconcileChildren(wipFiber, elements) {
    * 详细的fiber结构如
    * @see '../img/fiber.png'
    */
-  while (index < elements.length || oldFiber !== null) {
+  while (index < elements.length || oldFiber != null) {
     const element = elements[index];
-    let newFiber = {};
-
+    let newFiber = null;
     //获取到老节点和新节点的type是否相同
     const sameType = oldFiber && element && element.type === oldFiber.type;
 
@@ -185,41 +211,69 @@ function reconcileChildren(wipFiber, elements) {
       newFiber = {
         type: oldFiber.type,
         props: element.props,
-        alternate: oldFiber,
         dom: oldFiber.dom,
         parent: wipFiber,
+        alternate: oldFiber,
         effectTag: "UPDATE",
       };
     }
+
     //替换
     if (element && !sameType) {
       newFiber = {
         type: element.type,
         props: element.props,
-        alternate: null,
         dom: null,
         parent: wipFiber,
-        effectTag: "PLACMENT",
+        alternate: null,
+        effectTag: "PLACEMENT",
       };
     }
 
     //删除
     if (oldFiber && !sameType) {
       oldFiber.effectTag = "DELETION";
-      deletions.push(oldFiber.dom);
+      deletions.push(oldFiber);
     }
 
-    //对old和new进行对比
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
+    }
 
-    //如果是第一个子节点
     if (index === 0) {
-      fiber.child = newFiber; //此处是为了形成fiber tree结构 child 引用
+      wipFiber.child = newFiber; //此处是为了形成fiber tree结构 child 引用
       //如果不是第一个子节点，那么就是上一个element的下一个兄弟节点
-    } else {
-      prevSibling.silbing = newFiber;
+    } else if (element) {
+      prevSibling.sibling = newFiber;
     }
 
     prevSibling = newFiber;
     index++;
   }
 }
+
+const MyReact = {
+  createElement,
+  render,
+};
+/** @jsx MyReact.createElement */
+const container = document.getElementById("root");
+
+const updateValue = (e) => {
+  rerender(e.target.value);
+};
+
+const rerender = (value) => {
+  const element = MyReact.createElement(
+    "div",
+    null,
+    MyReact.createElement("input", {
+      onInput: updateValue,
+      value: value,
+    }),
+    MyReact.createElement("h2", null, "Hello ", value)
+  );
+  MyReact.render(container, element);
+};
+
+rerender("World");

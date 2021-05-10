@@ -75,8 +75,8 @@ function performUnitOfWork(fiber) {
   let nextFiber = fiber;
 
   while (nextFiber) {
-    if (nextFiber.silbing) {
-      return nextFiber.silbing;
+    if (nextFiber.sibling) {
+      return nextFiber.sibling;
     } //从sibling-->parent
 
     nextFiber = nextFiber.parent;
@@ -166,17 +166,13 @@ function commitWork(fiber) {
     domParent.removeChild(fiber.dom);
   }
 
-  domParent.appendChild(fiber.dom); //添加节点到父级
-
   commitWork(fiber.child); //添加子节点
-
-  commitWork(fiber.silbing); //添加兄弟节点
+  commitWork(fiber.sibling); //添加兄弟节点
 } //这个函数用于比较更新，也就是常说的diff生效的部分，这里主要是根据不同的情况，对fiber节点打上不同的tag。
 //使得在commit的时候，依据这些tag对dom节点做不同的操作
 
 function reconcileChildren(wipFiber, elements) {
   let index = 0; //获取到old fiber
-
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
   let prevSibling = null; //记录上一个循环中的element生成的fiber
   //这里while循环很重要，能够生成我们需要的fiber树。
@@ -189,16 +185,15 @@ function reconcileChildren(wipFiber, elements) {
   while (index < elements.length || oldFiber != null) {
     const element = elements[index];
     let newFiber = null; //获取到老节点和新节点的type是否相同
-
     const sameType = oldFiber && element && element.type === oldFiber.type; //更新
 
     if (sameType) {
       newFiber = {
         type: oldFiber.type,
         props: element.props,
-        alternate: oldFiber,
         dom: oldFiber.dom,
         parent: wipFiber,
+        alternate: oldFiber,
         effectTag: "UPDATE",
       };
     } //替换
@@ -207,9 +202,9 @@ function reconcileChildren(wipFiber, elements) {
       newFiber = {
         type: element.type,
         props: element.props,
-        alternate: null,
         dom: null,
         parent: wipFiber,
+        alternate: null,
         effectTag: "PLACEMENT",
       };
     } //删除
@@ -220,14 +215,14 @@ function reconcileChildren(wipFiber, elements) {
     }
 
     if (oldFiber) {
-      oldFiber = oldFiber.silbing;
+      oldFiber = oldFiber.sibling;
     }
 
     if (index === 0) {
       wipFiber.child = newFiber; //此处是为了形成fiber tree结构 child 引用
       //如果不是第一个子节点，那么就是上一个element的下一个兄弟节点
     } else if (element) {
-      prevSibling.silbing = newFiber;
+      prevSibling.sibling = newFiber;
     }
 
     prevSibling = newFiber;
