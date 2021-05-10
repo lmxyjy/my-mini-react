@@ -11,6 +11,12 @@ function workloop(deadline) {
     nextUnitOfWork = preformUnitOfWork(nextUnitOfWork); //执行当前任务单元，并且返回下一次的任务单元
     shouldYield = deadline.timeRemaining() < 1; //如果当前剩余执行任务的时间小于1ms，那么不再执行下一次循环
   }
+
+  //增加挂载
+  if (!nextUnitOfWork && wipRoot) {
+    commitRoot();
+  }
+
   requestIdleCallback(workloop); //将循环放到下一次空闲时间中执行
 }
 
