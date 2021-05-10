@@ -13,9 +13,9 @@ function workloop(deadline) {
   }
 
   //增加挂载
-  if (!nextUnitOfWork && wipRoot) {
-    commitRoot();
-  }
+  // if (!nextUnitOfWork && wipRoot) {
+  //   commitRoot();
+  // }
 
   requestIdleCallback(workloop); //将循环放到下一次空闲时间中执行
 }
