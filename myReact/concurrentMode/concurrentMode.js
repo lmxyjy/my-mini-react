@@ -26,4 +26,8 @@ requestIdleCallback(workloop);
 //执行本次的单元任务，并且返回下一单元的任务
 function preformUnitOfWork(nextUnitOfWork) {
   //todo
+  //   1，add the element to the DOM
+  //   2，create the fibers for the element’s children
+  //   3，select the next unit of work
+  //
 }
