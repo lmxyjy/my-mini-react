@@ -8,10 +8,10 @@ function workloop(deadline) {
   let shouldYield = false; //是否需要等待浏览器执行其他任务
   //如果有下一个单元到任务同时不需要等待浏览器执行其他任务
   while (nextUnitOfWork && !shouldYield) {
-    nextUnitOfWork = preformUnitOfWork(nextUnitOfWork);
-    shouldYield = deadline.timeRemaining() < 1;
+    nextUnitOfWork = preformUnitOfWork(nextUnitOfWork); //执行当前任务单元，并且返回下一次的任务单元
+    shouldYield = deadline.timeRemaining() < 1; //如果当前剩余执行任务的时间小于1ms，那么不再执行下一次循环
   }
-  requestIdleCallback(workloop);
+  requestIdleCallback(workloop); //将循环放到下一次空闲时间中执行
 }
 
 /**
@@ -23,6 +23,7 @@ function workloop(deadline) {
  */
 requestIdleCallback(workloop);
 
+//执行本次的单元任务，并且返回下一单元的任务
 function preformUnitOfWork(nextUnitOfWork) {
   //todo
 }
