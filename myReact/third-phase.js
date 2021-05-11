@@ -1,3 +1,4 @@
+//第三阶段 包含函数组件
 let nextUnitOfWork = null;
 let wipRoot = null;
 let currentFiber = null;
@@ -20,18 +21,18 @@ function workLoop(deadline) {
 requestIdleCallback(workLoop);
 
 //----------------------------reconcile 阶段----------------------------
-const isEvent = (key) => key.startsWith("on");
-const isProperty = (key) => key !== "children" && !isEvent(key);
-const isGone = (prev, next) => (key) => !(key in next);
-const isNew = (prev, next) => (key) => prev[key] !== next[key];
+const isEvent = (key) => key.startsWith("on"); //是否是事件属性
+const isProperty = (key) => key !== "children" && !isEvent(key); //是否是非children和非事件属性
+const isGone = (prev, next) => (key) => !(key in next); //是否是next中不具有的属性
+const isNew = (prev, next) => (key) => prev[key] !== next[key]; //是否是新属性
+const isFunctionComponent = (fiber) => fiber.type instanceof Function; //是否是函数组件
 const TEXT_ELEMENT = Symbol("TEXT_ELEMENT"); //文本类型
 const UPDATE = Symbol("UPDATE"); //更新标识
 const DELETE = Symbol("DELETE"); //删除标识
 const PLACMENT = Symbol("PLACMENT"); //替换标识
 //协调器，diff算法生效的位置
 //对比新旧2棵fiber tree，找到不同的节点处理类型打上tag。在commit阶段统一的去处理
-function reconcile(wipFiber) {
-  const elements = wipFiber.props.children; //当前需要更新的列表
+function reconcile(wipFiber, elements) {
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child; //对应的老节点
   let prevSibling = null;
   let newFiber = null;
@@ -91,11 +92,11 @@ function reconcile(wipFiber) {
  * 3，返回下一个任务节点
  */
 function performUnitOfWork(fiber) {
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
+  if (isFunctionComponent(fiber)) {
+    updateFunctionComponent(fiber);
+  } else {
+    updateHostComponent(fiber);
   }
-
-  reconcile(fiber);
 
   if (fiber.child) {
     return fiber.child;
@@ -159,6 +160,21 @@ function updateDom(dom, prevProps, nextProps) {
       dom.addEventListener(eventType, nextProps[name]);
     });
 }
+//更新函数组件
+//1,执行返回组件，得到返回的结果
+function updateFunctionComponent(fiber) {
+  const fn = fiber.type;
+  const children = [fn(fiber.props)];
+  reconcile(fiber, children);
+}
+//更新非函数组件
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+  const elements = fiber.props.children; //当前需要更新的列表
+  reconcile(fiber, elements);
+}
 //----------------------------commit 阶段----------------------------
 //挂载
 function commitRoot() {
@@ -169,21 +185,33 @@ function commitRoot() {
 }
 //递归挂载子dom
 function commitWork(fiber) {
-  console.log("fiber==>", fiber);
   if (!fiber) {
     return;
   }
-  const parentDom = fiber.parent.dom;
-
+  //找到一个有dom节点的上级元素
+  let domParentFiber = fiber.parent;
+  while (!domParentFiber.dom) {
+    domParentFiber = domParentFiber.parent;
+  }
+  const parentDom = domParentFiber.dom;
   if (fiber.effectTag === UPDATE && fiber.dom) {
     updateDom(fiber.dom, fiber.alternate.props, fiber.props);
   } else if (fiber.effectTag === PLACMENT && fiber.dom) {
     parentDom.appendChild(fiber.dom);
   } else if (fiber.effectTag === DELETE) {
-    parentDom.removeChild(fiber.dom);
+    // parentDom.removeChild(fiber.dom);
+    commitDeletion(fiber, parentDom);
   }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
+}
+//删除
+function commitDeletion(fiber, domParent) {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom);
+  } else {
+    commitDeletion(fiber.child, domParent);
+  }
 }
 //----------------------------render 阶段----------------------------
 //在render中设置根节点中的任务单元
@@ -223,25 +251,14 @@ function createTextElement(text) {
   };
 }
 
-//test
+/** @jsx createElement */
+
+function App(props) {
+  return createElement("h1", null, "Hi ", props.name);
+}
+
+const element = createElement(App, {
+  name: "foo",
+});
 const container = document.getElementById("root");
-
-const updateValue = (e) => {
-  console.log("eee==>,e", e.target.value);
-  rerender(e.target.value);
-};
-
-const rerender = (value) => {
-  const element = createElement(
-    "div",
-    null,
-    createElement("input", {
-      onInput: updateValue,
-      value: value,
-    }),
-    createElement("h2", null, "Hello ", value)
-  );
-  render(container, element);
-};
-
-rerender("World");
+render(container, element);

@@ -1,3 +1,4 @@
+//第一阶段，不包含协调器的版本
 let nextUnitOfWork = null;
 let wipRoot = null;
 

@@ -168,7 +168,13 @@ function updateDom(dom, prevProps, nextProps) {
 } //更新函数组件
 //1,执行返回组件，得到返回的结果
 
+let wipFiber = null;
+let hookIndex = null;
+
 function updateFunctionComponent(fiber) {
+  wipFiber = fiber;
+  hookIndex = 0;
+  wipFiber.hooks = [];
   const fn = fiber.type;
   const children = [fn(fiber.props)];
   reconcile(fiber, children);
@@ -182,6 +188,36 @@ function updateHostComponent(fiber) {
   const elements = fiber.props.children; //当前需要更新的列表
 
   reconcile(fiber, elements);
+} //----------------------------hooks----------------------------
+
+function useState(initial) {
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex];
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: [],
+  };
+  const actions = oldHook ? oldHook.queue : [];
+  actions.forEach((action) => {
+    hook.state = action(hook.state);
+  });
+
+  const setState = (action) => {
+    hook.queue.push(action);
+    wipRoot = {
+      dom: currentFiber.dom,
+      props: currentFiber.props,
+      alternate: currentFiber,
+    };
+    nextUnitOfWork = wipRoot;
+    deletions = [];
+  };
+
+  wipFiber.hooks.push(hook);
+  hookIndex++;
+  return [hook.state, setState];
 } //----------------------------commit 阶段----------------------------
 //挂载
 
@@ -259,16 +295,21 @@ function createTextElement(text) {
       children: [],
     },
   };
-} //test
-
+}
 /** @jsx createElement */
 
-function App(props) {
-  return createElement("h1", null, "Hi ", props.name);
+function Counter() {
+  const [state, setState] = useState(1);
+  return createElement(
+    "h1",
+    {
+      onClick: () => setState((c) => c + 1),
+    },
+    "Count: ",
+    state
+  );
 }
 
-const element = createElement(App, {
-  name: "foo",
-});
+const element = createElement(Counter, null);
 const container = document.getElementById("root");
 render(container, element);
