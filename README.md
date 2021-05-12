@@ -1,6 +1,6 @@
 # my-mini-react
 
-Here's an example of how React works
+Here's an example of how React works.It does not include any performance optimizations and just a learning demo.
 
 # about this project:
 
