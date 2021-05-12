@@ -205,7 +205,7 @@ function commitWork(fiber) {
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }
-//删除
+//删除,以便能够删除函数组件
 function commitDeletion(fiber, domParent) {
   if (fiber.dom) {
     domParent.removeChild(fiber.dom);
