@@ -1,3 +1,15 @@
 # my-mini-react
 
-a mini react of mine
+Here's an example of how React works
+
+# about this project:
+
+1. `base` include `createElement`、`createTextElement`、`render`
+
+2. `first-phase` include `HostComponent`
+
+3. `second-phase` include `reconcile`
+
+4. `third-phase` include `FunctionComponent`
+
+5. `four-phase` include `useState`
