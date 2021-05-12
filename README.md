@@ -12,4 +12,4 @@ Here's an example of how React works.It does not include any performance optimiz
 
 4. `third-phase` include `FunctionComponent`
 
-5. `four-phase` include `useState`
+5. `four-phase` include `useState` & `useEffect`
