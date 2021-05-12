@@ -1,4 +1,4 @@
-//第三阶段 包含函数组件
+//第四阶段 包含了useState
 let nextUnitOfWork = null;
 let wipRoot = null;
 let currentFiber = null;
@@ -162,8 +162,8 @@ function updateDom(dom, prevProps, nextProps) {
 }
 //更新函数组件
 //1,执行返回组件，得到返回的结果
-let wipFiber = null;
-let hookIndex = null;
+let wipFiber = null; //记录当前执行的函数组件fiber
+let hookIndex = null; //记录当前函数组件中执行到了第几个useState
 function updateFunctionComponent(fiber) {
   wipFiber = fiber;
   hookIndex = 0;
@@ -181,6 +181,7 @@ function updateHostComponent(fiber) {
   reconcile(fiber, elements);
 }
 //----------------------------hooks----------------------------
+//可能存在同时执行多个useState的情况
 function useState(initial) {
   const oldHook =
     wipFiber.alternate &&
@@ -190,19 +191,20 @@ function useState(initial) {
     state: oldHook ? oldHook.state : initial,
     queue: [],
   };
-
   const actions = oldHook ? oldHook.queue : [];
   actions.forEach((action) => {
     hook.state = action(hook.state);
   });
 
   const setState = (action) => {
+    //在hook中设置action
     hook.queue.push(action);
     wipRoot = {
       dom: currentFiber.dom,
       props: currentFiber.props,
       alternate: currentFiber,
     };
+    //设置下一个工作单元
     nextUnitOfWork = wipRoot;
     deletions = [];
   };
@@ -211,6 +213,8 @@ function useState(initial) {
   hookIndex++;
   return [hook.state, setState];
 }
+//useEffect
+function useEffect(callback, deps) {}
 //----------------------------commit 阶段----------------------------
 //挂载
 function commitRoot() {
@@ -289,10 +293,48 @@ function createTextElement(text) {
 
 /** @jsx createElement */
 
+// function Counter() {
+//   const [state, setState] = useState(1);
+//   return createElement(
+//     "h1",
+//     {
+//       onClick: () => setState((c) => c + 1),
+//     },
+//     "Count: ",
+//     state
+//   );
+// }
+
 function Counter() {
   const [state, setState] = useState(1);
-  return <h1 onClick={() => setState((c) => c + 1)}>Count: {state}</h1>;
+  const [state2, setState2] = useState(1);
+  return createElement(
+    "div",
+    null,
+    createElement(
+      "h1",
+      {
+        onClick: () => {
+          setState((c) => c + 1);
+          setState((c) => c + 1);
+        },
+      },
+      "Count: ",
+      state
+    ),
+    ";",
+    createElement(
+      "h2",
+      {
+        onClick: () => setState2((c) => c - 1),
+      },
+      "Count: ",
+      state2
+    ),
+    ";"
+  );
 }
-const element = <Counter />;
+
+const element = createElement(Counter, null);
 const container = document.getElementById("root");
 render(container, element);
