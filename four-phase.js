@@ -94,6 +94,10 @@ function reconcile(wipFiber, elements) {
 function performUnitOfWork(fiber) {
   if (isFunctionComponent(fiber)) {
     updateFunctionComponent(fiber);
+    //执行useEffect中的函数
+    fiber.useEffectHooks.forEach((hook) => {
+      hook.callTag && hook.callback();
+    });
   } else {
     updateHostComponent(fiber);
   }
@@ -163,11 +167,16 @@ function updateDom(dom, prevProps, nextProps) {
 
 //设置当前的活动hook
 let updateFunctionFiber = null; //当前更新中的函数组件
-let updateHookIndex = null; //当前更新中的老fiber节点中的useState函数索引
+let useStateHookIndex = null; //当前更新中的老fiber节点中的useState函数索引
+let useEffectHookIndex = null; //当前更新中的老fiber节点中的useEffect函数索引
 function setHookInfo(fiber) {
   updateFunctionFiber = fiber;
-  updateFunctionFiber.hooks = [];
-  updateHookIndex = 0;
+
+  updateFunctionFiber.useStateHooks = [];
+  updateFunctionFiber.useEffectHooks = [];
+
+  useStateHookIndex = 0;
+  useEffectHookIndex = 0;
 }
 //更新函数组件
 //1,执行返回组件，得到返回的结果
@@ -191,8 +200,8 @@ function useState(initial) {
   //查看是否存在老fiber上的hook
   const oldHook =
     updateFunctionFiber.alternate &&
-    updateFunctionFiber.alternate.hooks &&
-    updateFunctionFiber.alternate.hooks[updateHookIndex];
+    updateFunctionFiber.alternate.useStateHooks &&
+    updateFunctionFiber.alternate.useStateHooks[useStateHookIndex];
 
   //获取到更新的hook
   const hook = {
@@ -222,12 +231,32 @@ function useState(initial) {
   }
 
   //在当前组件的hook列表中添加新的hook对象，里面记录了新的state以及新的调用队列
-  updateFunctionFiber.hooks.push(hook);
+  updateFunctionFiber.useStateHooks.push(hook);
   //继续指定一下个需要执行的useState函数
-  updateHookIndex++;
+  useStateHookIndex++;
 
   //返回当前的hook
   return [hook.state, setState];
+}
+function useEffect(callback, deps) {
+  //获取到老得fiber节点上对应索引值的useEffect
+  const oldFiber =
+    updateFunctionFiber.alternate &&
+    updateFunctionFiber.alternate.useEffectHooks &&
+    updateFunctionFiber.alternate.useEffectHooks[useEffectHookIndex];
+
+  //设置新的useEffect
+  const hook = {
+    callback: oldFiber ? oldFiber.callback : callback,
+    deps: deps,
+    callTag: oldFiber
+      ? oldFiber.deps.find((dep, index) => dep !== deps[index])
+      : true,
+  };
+
+  //将新的hook添加到列表中
+  updateFunctionFiber.useEffectHooks.push(hook);
+  useEffectHookIndex++;
 }
 //----------------------------commit 阶段----------------------------
 //挂载
@@ -307,21 +336,12 @@ function createTextElement(text) {
 
 /** @jsx createElement */
 
-// function Counter() {
-//   const [state, setState] = useState(1);
-//   return createElement(
-//     "h1",
-//     {
-//       onClick: () => setState((c) => c + 1),
-//     },
-//     "Count: ",
-//     state
-//   );
-// }
-
 function Counter() {
   const [state, setState] = useState(1);
   const [state2, setState2] = useState(1);
+  useEffect(() => {
+    console.log("useEffect");
+  }, [state2]);
   return createElement(
     "div",
     null,
