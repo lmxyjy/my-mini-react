@@ -160,20 +160,26 @@ function updateDom(dom, prevProps, nextProps) {
       dom.addEventListener(eventType, nextProps[name]);
     });
 }
+
+//设置当前的活动hook
+let updateFunctionFiber = null; //当前更新中的函数组件
+let updateHookIndex = null; //当前更新中的老fiber节点中的useState函数索引
+function setHookInfo(fiber) {
+  updateFunctionFiber = fiber;
+  updateFunctionFiber.hooks = [];
+  updateHookIndex = 0;
+}
 //更新函数组件
 //1,执行返回组件，得到返回的结果
 function updateFunctionComponent(fiber) {
+  setHookInfo(fiber);
   const fn = fiber.type;
   const children = [fn(fiber.props)];
   reconcile(fiber, children);
 }
+
 //更新非函数组件
-let wipFiber = null; //当前在协调的函数组件fiber
-let hookIndex = null; //当前执行的hook函数索引值
 function updateHostComponent(fiber) {
-  wipFiber = fiber;
-  wipFiber.hooks = [];
-  hookIndex = 0;
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
@@ -181,42 +187,46 @@ function updateHostComponent(fiber) {
   reconcile(fiber, elements);
 }
 //----------------------------hooks----------------------------
-//可能存在同时执行多个useState的情况
 function useState(initial) {
-  //查看节点中是否已经存在hook函数
+  //查看是否存在老fiber上的hook
   const oldHook =
-    wipFiber.alternate &&
-    wipFiber.alternate.hooks &&
-    wipFiber.alternate.hooks[hookIndex];
+    updateFunctionFiber.alternate &&
+    updateFunctionFiber.alternate.hooks &&
+    updateFunctionFiber.alternate.hooks[updateHookIndex];
 
-  //获取当前执行useState时应该得到的hook函数
+  //获取到更新的hook
   const hook = {
-    state: oldHook ? oldHook.state : initial,
-    queue: [], //因为同一个setState可能会被多次调用，所以需要保存一个队列
+    state: oldHook ? oldHook.state : initial, //查看是否存在老得状态,还是第一次初始化
+    queue: [], //这里设置队列数组的目的是为了，存在返回的setState被多次调用的情况。所以要设置数组要依次运行
   };
 
-  //执行同一个useState的多个调用
+  //到setState调用时传入的参数列表
   const actions = oldHook ? oldHook.queue : [];
-  actions.forEach((action) => {
-    hook.state = action(hook.state);
-  });
+  //依次执行setState中的参数,传入上一个state
+  actions.forEach((action) => (hook.state = action(hook.state)));
 
-  //设置state的值
+  //setState接受函数参数，也接受非函数参数
   function setState(action) {
     const _action = action instanceof Function ? action : () => action;
     hook.queue.push(_action);
+
+    //指定react的下一个工作单元
     wipRoot = {
       dom: currentFiber.dom,
       props: currentFiber.props,
       alternate: currentFiber,
     };
     nextUnitOfWork = wipRoot;
+    //清空之前需要删除的fiber节点
     deletions = [];
   }
 
-  wipFiber.hooks.push(hook); //将当前运行的hook存储到当前函数组件的hooks数组中，以便下次使用
-  hookIndex++; //因为同一个函数组件中可能存在多个useState
+  //在当前组件的hook列表中添加新的hook对象，里面记录了新的state以及新的调用队列
+  updateFunctionFiber.hooks.push(hook);
+  //继续指定一下个需要执行的useState函数
+  updateHookIndex++;
 
+  //返回当前的hook
   return [hook.state, setState];
 }
 //----------------------------commit 阶段----------------------------
