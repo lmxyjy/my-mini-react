@@ -1,4 +1,7 @@
 //第三阶段 包含函数组件
+//函数组件与普通的hostcomponet不一样的地方在于
+//1，函数组件没有dom元素
+//2，函数组件的子节点是调用函数组件返回的结果
 let nextUnitOfWork = null;
 let wipRoot = null;
 let currentFiber = null;
@@ -112,6 +115,21 @@ function performUnitOfWork(fiber) {
   }
 }
 
+//创建函数组件的fiber节点
+function updateFunctionComponent(fiber) {
+  const fn = fiber.type;
+  const children = [fn(fiber.props)];
+  reconcile(fiber, children);
+}
+//创建非函数组件的fiber节点
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+  const elements = fiber.props.children;
+  reconcile(fiber, elements);
+}
+
 //用于创建fiber对象的dom属性
 function createDom(fiber) {
   const type = fiber.type;
@@ -160,21 +178,7 @@ function updateDom(dom, prevProps, nextProps) {
       dom.addEventListener(eventType, nextProps[name]);
     });
 }
-//更新函数组件
-//1,执行返回组件，得到返回的结果
-function updateFunctionComponent(fiber) {
-  const fn = fiber.type;
-  const children = [fn(fiber.props)];
-  reconcile(fiber, children);
-}
-//更新非函数组件
-function updateHostComponent(fiber) {
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
-  }
-  const elements = fiber.props.children; //当前需要更新的列表
-  reconcile(fiber, elements);
-}
+
 //----------------------------commit 阶段----------------------------
 //挂载
 function commitRoot() {
@@ -188,7 +192,6 @@ function commitWork(fiber) {
   if (!fiber) {
     return;
   }
-  //找到一个有dom节点的上级元素
   let domParentFiber = fiber.parent;
   while (!domParentFiber.dom) {
     domParentFiber = domParentFiber.parent;
@@ -199,20 +202,21 @@ function commitWork(fiber) {
   } else if (fiber.effectTag === PLACMENT && fiber.dom) {
     parentDom.appendChild(fiber.dom);
   } else if (fiber.effectTag === DELETE) {
-    // parentDom.removeChild(fiber.dom);
     commitDeletion(fiber, parentDom);
   }
   commitWork(fiber.child);
   commitWork(fiber.sibling);
 }
-//删除,以便能够删除函数组件
-function commitDeletion(fiber, domParent) {
+
+//删除函数
+function commitDeletion(fiber, parentDom) {
   if (fiber.dom) {
-    domParent.removeChild(fiber.dom);
+    parentDom.removeChild(fiber.dom);
   } else {
-    commitDeletion(fiber.child, domParent);
+    commitDeletion(fiber.child, parentDom);
   }
 }
+
 //----------------------------render 阶段----------------------------
 //在render中设置根节点中的任务单元
 function render(container, element) {
