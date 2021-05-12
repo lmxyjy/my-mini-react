@@ -162,18 +162,18 @@ function updateDom(dom, prevProps, nextProps) {
 }
 //更新函数组件
 //1,执行返回组件，得到返回的结果
-let wipFiber = null; //记录当前执行的函数组件fiber
-let hookIndex = null; //记录当前函数组件中执行到了第几个useState
 function updateFunctionComponent(fiber) {
-  wipFiber = fiber;
-  hookIndex = 0;
-  wipFiber.hooks = [];
   const fn = fiber.type;
   const children = [fn(fiber.props)];
   reconcile(fiber, children);
 }
 //更新非函数组件
+let wipFiber = null; //当前在协调的函数组件fiber
+let hookIndex = null; //当前执行的hook函数索引值
 function updateHostComponent(fiber) {
+  wipFiber = fiber;
+  wipFiber.hooks = [];
+  hookIndex = 0;
   if (!fiber.dom) {
     fiber.dom = createDom(fiber);
   }
@@ -183,38 +183,42 @@ function updateHostComponent(fiber) {
 //----------------------------hooks----------------------------
 //可能存在同时执行多个useState的情况
 function useState(initial) {
+  //查看节点中是否已经存在hook函数
   const oldHook =
     wipFiber.alternate &&
     wipFiber.alternate.hooks &&
     wipFiber.alternate.hooks[hookIndex];
+
+  //获取当前执行useState时应该得到的hook函数
   const hook = {
     state: oldHook ? oldHook.state : initial,
-    queue: [],
+    queue: [], //因为同一个setState可能会被多次调用，所以需要保存一个队列
   };
+
+  //执行同一个useState的多个调用
   const actions = oldHook ? oldHook.queue : [];
   actions.forEach((action) => {
     hook.state = action(hook.state);
   });
 
-  const setState = (action) => {
-    //在hook中设置action
-    hook.queue.push(action);
+  //设置state的值
+  function setState(action) {
+    const _action = action instanceof Function ? action : () => action;
+    hook.queue.push(_action);
     wipRoot = {
       dom: currentFiber.dom,
       props: currentFiber.props,
       alternate: currentFiber,
     };
-    //设置下一个工作单元
     nextUnitOfWork = wipRoot;
     deletions = [];
-  };
+  }
 
-  wipFiber.hooks.push(hook);
-  hookIndex++;
+  wipFiber.hooks.push(hook); //将当前运行的hook存储到当前函数组件的hooks数组中，以便下次使用
+  hookIndex++; //因为同一个函数组件中可能存在多个useState
+
   return [hook.state, setState];
 }
-//useEffect
-function useEffect(callback, deps) {}
 //----------------------------commit 阶段----------------------------
 //挂载
 function commitRoot() {
