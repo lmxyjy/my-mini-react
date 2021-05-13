@@ -1,4 +1,4 @@
-//第四阶段 包含了useState
+//第四阶段 包含了useState & useEffect
 let nextUnitOfWork = null;
 let wipRoot = null;
 let currentFiber = null;
